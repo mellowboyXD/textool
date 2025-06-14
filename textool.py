@@ -1,8 +1,8 @@
 #!/bin/python3.13
 
-from enum import Enum
 import sys
 from typing import Iterator
+from enum import Enum
 
 options = {
     "-f": "--freq",
@@ -15,6 +15,10 @@ class Options(Enum):
     UNIQ = 1
     LEN = 2
 
+
+short_options = list(options.keys())
+long_options = list(options.values())
+
 class UsageError(Exception):
     def __init__(self, message):
         super().__init__(message)
@@ -26,18 +30,32 @@ class UsageError(Exception):
         print(f"Options: {long_options}")
         exit()
 
-short_options = list(options.keys())
-long_options = list(options.values())
 
 class WordStream:
+    words = []
     def __init__(self, line):
-        print(f"Current line: {line.split()}")
+        # the quick, brown fox jumps over the lazy dog.
+        for word in line.split():
+            token = ""
+            for l in word:
+                if l.isalpha() or l.isnumeric():
+                    token += l
+                else:
+                    if token:
+                        self.words.append(token)
+                    token = ""
 
-    def __iter__():
-        pass
+            if token:
+                self.words.append(token)
 
-    def __next__():
-        pass
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if len(self.words) == 0:
+            raise StopIteration
+        return self.words.pop(0)
+
 
 def read_file(path: str) -> Iterator[str]:
     try:
@@ -54,6 +72,17 @@ def read_file(path: str) -> Iterator[str]:
     except UnicodeDecodeError:
         print(f"ERROR: Could not decode '{path}'.")
         raise IOError
+
+
+# TODO: Count words
+def count_words(ws, *filters, case_sensitive=False, **kwargs) -> dict:
+    """
+    `ws` - Any iterable of words
+    `*filters` - Are callables that filters for specific words
+    `case_sensitive` - Toggles normalization
+    `**kwargs` - Commands to perform
+    """
+    pass
 
 
 def main(*args) -> None:
@@ -95,6 +124,7 @@ def main(*args) -> None:
     try:
         for line in read_file(fileName):
             stream = WordStream(line)
+            # TODO: Implement Counting Here
     except IOError:
         exit()
 
