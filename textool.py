@@ -55,7 +55,6 @@ class InvalidFilter(Exception):
 class WordStream:
     w = []
     def __init__(self, line):
-        # the quick, brown fox jumps over the lazy dog.
         self.w = []
         for word in line.split():
             token = ""
