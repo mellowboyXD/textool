@@ -1,10 +1,10 @@
 #!/bin/python3.13
 
 import sys
-from typing import Iterator
+from typing import Iterable, Iterator
 from enum import Enum
 
-options = {
+cmd_options = {
     "-f": "--freq",
     "-u": "--unique",
     "-l": "--lengths"
@@ -16,8 +16,23 @@ class Options(Enum):
     LEN = 2
 
 
-short_options = list(options.keys())
-long_options = list(options.values())
+short_options = list(cmd_options.keys())
+long_options = list(cmd_options.values())
+
+class Logger:
+    def __init__(self):
+        pass
+
+    def Error(self, *message):
+        print(f"[LOG ERROR]:")
+        for msg in message:
+            print(f"\t: {msg}")
+
+    def Log(self, *message):
+        print(f"[LOG]:")
+        for msg in message:
+            print(f"\t: {msg}")
+
 
 class UsageError(Exception):
     def __init__(self, message):
@@ -31,30 +46,37 @@ class UsageError(Exception):
         exit()
 
 
+class InvalidFilter(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
+
 class WordStream:
-    words = []
+    w = []
     def __init__(self, line):
         # the quick, brown fox jumps over the lazy dog.
+        self.w = []
         for word in line.split():
             token = ""
-            for l in word:
-                if l.isalpha() or l.isnumeric():
-                    token += l
+            for letter in word:
+                if letter.isalpha() or letter.isnumeric():
+                    token += letter
                 else:
                     if token:
-                        self.words.append(token)
+                        self.w.append(token)
                     token = ""
 
             if token:
-                self.words.append(token)
+                self.w.append(token)
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if len(self.words) == 0:
+        if len(self.w) == 0:
             raise StopIteration
-        return self.words.pop(0)
+        return self.w.pop(0)
 
 
 def read_file(path: str) -> Iterator[str]:
@@ -75,14 +97,75 @@ def read_file(path: str) -> Iterator[str]:
 
 
 # TODO: Count words
-def count_words(ws, *filters, case_sensitive=False, **kwargs) -> dict:
+def count_words(ws: Iterable, *filters, case_sensitive=False, **kwargs) -> dict:
     """
     `ws` - Any iterable of words
     `*filters` - Are callables that filters for specific words
     `case_sensitive` - Toggles normalization
-    `**kwargs` - Commands to perform
+    `**kwargs` - May include `min_length`, `max_items`
     """
-    pass
+    for filter in filters:
+        try:
+            if not callable(filter):
+                raise InvalidFilter("Filters must be callables")
+
+            if not isinstance(filter("mellowboyXD"), bool):
+                raise InvalidFilter("Filters take in `str` and returns `bool`")
+
+        except InvalidFilter as err:
+            Logger().Error(err.message, filter)
+        except AttributeError as err:
+            Logger().Error("Filters must take in `str` as parameter argument",
+                           filter)
+
+    options = kwargs.copy()
+    max_items = -1
+    min_length = -1
+    max_length = -1
+    for opts in kwargs.keys():
+        if opts in options:
+            match opts:
+                case "max_length":
+                    max_length = options.pop(opts)
+                case "min_length":
+                    min_length = options.pop(opts)
+                case "max_items":
+                    max_items = options.pop(opts)
+
+    counter = {}
+    for word in ws:
+        word: str = word if case_sensitive else word.lower()
+
+        skip = False
+        for filter in filters:
+            if not filter(word):
+                skip = True
+                break
+
+        if skip:
+            continue
+
+        if min_length != -1 and len(word) < min_length:
+            continue
+
+        if max_length != -1 and len(word) > max_length:
+            continue
+
+        try:
+            if options:
+                raise InvalidFilter("Undefined Keyword Args")
+        except InvalidFilter as err:
+            Logger().Error(err.message)
+
+        if word in counter:
+            counter[word] += 1
+        else:
+            if len(counter) < max_items:
+                counter[word] = 1
+            elif max_items == -1:
+                counter[word] = 1
+
+    return counter
 
 
 def main(*args) -> None:
