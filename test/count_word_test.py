@@ -31,7 +31,7 @@ class WordCountTest(unittest.TestCase):
         ws = ["a", "b", "a", "c", "b", "a", "d"]
         expected = {"a": 3, "b": 2}
         output = count_words(ws, max_items=2)
-        self.assertDictEqual(output, expected, "Test max_length")
+        self.assertDictEqual(output, expected, "Test max_items")
 
     def test_all(self):
         ws = ["Test", "TEST", "123", "pass", "PASS", "!!!", "Pass"]

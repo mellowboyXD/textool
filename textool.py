@@ -10,6 +10,7 @@ cmd_options = {
     "-l": "--lengths"
 }
 
+
 class Options(Enum):
     FREQ = 0
     UNIQ = 1
@@ -18,6 +19,7 @@ class Options(Enum):
 
 short_options = list(cmd_options.keys())
 long_options = list(cmd_options.values())
+
 
 class Logger:
     def __init__(self):
@@ -39,14 +41,13 @@ class UsageError(Exception):
         super().__init__(message)
         self.message = f"ERROR: {message}"
 
-
     def error_and_exit(self):
         print(f"ERROR: {self.message}")
         print(f"Options: {long_options}")
         exit()
 
 
-class InvalidFilter(Exception):
+class InvalidArgs(Exception):
     def __init__(self, message):
         super().__init__(message)
         self.message = message
@@ -54,6 +55,7 @@ class InvalidFilter(Exception):
 
 class WordStream:
     w = []
+
     def __init__(self, line):
         self.w = []
         for word in line.split():
@@ -96,40 +98,23 @@ def read_file(path: str) -> Iterator[str]:
 
 
 # TODO: Count words
-def count_words(ws: Iterable, *filters, case_sensitive=False, **kwargs) -> dict:
+def count_words(ws: Iterable[str], *filters, case_sensitive=False, **kwargs) -> dict[str, int]:
     """
     `ws` - Any iterable of words
     `*filters` - Are callables that filters for specific words
     `case_sensitive` - Toggles normalization
     `**kwargs` - May include `min_length`, `max_items`
+
+        returns a dictionary containing filtered words and their corresponding 
+        count
     """
-    for filter in filters:
-        try:
-            if not callable(filter):
-                raise InvalidFilter("Filters must be callables")
-
-            if not isinstance(filter("mellowboyXD"), bool):
-                raise InvalidFilter("Filters take in `str` and returns `bool`")
-
-        except InvalidFilter as err:
-            Logger().Error(err.message, filter)
-        except AttributeError as err:
-            Logger().Error("Filters must take in `str` as parameter argument",
-                           filter)
-
     options = kwargs.copy()
-    max_items = -1
-    min_length = -1
-    max_length = -1
-    for opts in kwargs.keys():
-        if opts in options:
-            match opts:
-                case "max_length":
-                    max_length = options.pop(opts)
-                case "min_length":
-                    min_length = options.pop(opts)
-                case "max_items":
-                    max_items = options.pop(opts)
+    max_items = options.pop("max_items", None)
+    min_length = options.pop("min_length", None)
+    max_length = options.pop("max_length", None)
+
+    if options:
+        raise InvalidArgs(f"Undefined Keyword Arguments {options}")
 
     counter = {}
     for word in ws:
@@ -137,6 +122,12 @@ def count_words(ws: Iterable, *filters, case_sensitive=False, **kwargs) -> dict:
 
         skip = False
         for filter in filters:
+            if not callable(filter):
+                raise InvalidArgs("Filters must be callables")
+
+            if not isinstance(filter("mellowboyXD"), bool):
+                raise InvalidArgs("Filters take in `str` and returns `bool`")
+
             if not filter(word):
                 skip = True
                 break
@@ -144,24 +135,19 @@ def count_words(ws: Iterable, *filters, case_sensitive=False, **kwargs) -> dict:
         if skip:
             continue
 
-        if min_length != -1 and len(word) < min_length:
+        if min_length and len(word) < min_length:
             continue
 
-        if max_length != -1 and len(word) > max_length:
+        if max_length and len(word) > max_length:
             continue
-
-        try:
-            if options:
-                raise InvalidFilter("Undefined Keyword Args")
-        except InvalidFilter as err:
-            Logger().Error(err.message)
 
         if word in counter:
             counter[word] += 1
         else:
-            if len(counter) < max_items:
-                counter[word] = 1
-            elif max_items == -1:
+            if max_items:
+                if len(counter) < max_items:
+                    counter[word] = 1
+            else:
                 counter[word] = 1
 
     return counter
@@ -183,7 +169,7 @@ def main(*args) -> None:
         if c in short_options:
             opts.add(Options(short_options.index(c)))
         elif c in long_options:
-            opts.add(Options(short_options.index(c))) 
+            opts.add(Options(short_options.index(c)))
         elif c[0] != "-":
             fileName = c
         else:
@@ -197,7 +183,7 @@ def main(*args) -> None:
         err.error_and_exit()
 
     # User does not provide file name
-    try: 
+    try:
         if not fileName:
             raise UsageError("File input not provided")
     except UsageError as err:
@@ -209,6 +195,7 @@ def main(*args) -> None:
             # TODO: Implement Counting Here
     except IOError:
         exit()
+
 
 if __name__ == "__main__":
     main(*sys.argv[1:])
