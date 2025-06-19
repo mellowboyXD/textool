@@ -1,10 +1,52 @@
 #!/bin/python3.13
 
 import sys
+import traceback
+from datetime import datetime
 from enum import Enum
-from typing import Iterable, Iterator
+from typing import Callable, Iterable, Iterator
 
 cmd_options = {"-f": "--freq", "-u": "--unique", "-l": "--lengths"}
+log_file = None  # Logs to stdout
+
+
+class StreamHandler:
+    def __init__(self, stream: str | None = None):
+        if stream is not None:
+            self.stream = open(stream, "a")
+        else:
+            self.stream = sys.stdout
+
+    def write(self, record):
+        if self.stream:
+            try:
+                self.stream.write(record)
+                self.stream.flush()
+            except Exception as err:
+                print(f"Error Writing Log: {err}")
+
+    def close(self):
+        try:
+            self.stream.flush()
+            self.stream.close()
+        except Exception as err:
+            print(f"Error Closing Log: {err}")
+
+
+handle = StreamHandler(log_file)
+
+
+def log_errors(func: Callable) -> Callable:
+    def wrapper(*args, **kwargs):
+        time = datetime.now().strftime("%d/%m/%YYYY, %H:%M:%S")
+        try:
+            return func(*args, **kwargs)
+        except UsageError as err:
+            print(f"[USAGE]: {err}")
+        except Exception as err:
+            handle.write(f"[LOG] {time}: {err}\n{traceback.format_exc()}")
+
+    return wrapper
 
 
 class Options(Enum):
@@ -61,6 +103,7 @@ class WordStream:
         return self.w.pop(0)
 
 
+@log_errors
 def read_file(path: str) -> Iterator[str]:
     try:
         with open(path, "r") as file:
@@ -68,13 +111,15 @@ def read_file(path: str) -> Iterator[str]:
                 _ = line.encode("utf-8")
                 yield line
     except FileNotFoundError:
-        raise IOError(f"File '{path}' not found")
+        raise UsageError(f"'{path}' does not exist.")
     except IsADirectoryError:
-        raise IOError(f"'{path}' is a directory.")
-    except UnicodeDecodeError:
-        raise IOError(f"Could not decode '{path}'.")
+        raise UsageError(f"'{path}' is a directory.")
+    except UnicodeDecodeError as err:
+        print(f"Could not decode '{path}'.")
+        raise IOError(err)
 
 
+@log_errors
 def count_words(
     ws: Iterable[str], *filters, case_sensitive=False, **kwargs
 ) -> dict[str, int]:
@@ -132,6 +177,7 @@ def count_words(
     return counter
 
 
+@log_errors
 def main(*args) -> None:
     argc = len(args)
 
@@ -142,6 +188,7 @@ def main(*args) -> None:
     opts = set()
     fileName = ""
     error_invalid_flag = False
+    invalid_flags = []
     for c in args:
         if c in short_options:
             opts.add(Options(short_options.index(c)))
@@ -151,10 +198,11 @@ def main(*args) -> None:
             fileName = c
         else:
             error_invalid_flag = True
+            invalid_flags.append(c)
 
     # User types a command that is not valid
     if error_invalid_flag:
-        raise UsageError("Invalid command.")
+        raise UsageError(f"Invalid command. {invalid_flags}")
 
     # User does not provide file name
     if not fileName:
@@ -169,5 +217,5 @@ def main(*args) -> None:
 if __name__ == "__main__":
     try:
         main(*sys.argv[1:])
-    except Exception as err:
-        print("ERROR:", err)
+    finally:
+        handle.close()
