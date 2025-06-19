@@ -1,14 +1,10 @@
 #!/bin/python3.13
 
 import sys
-from typing import Iterable, Iterator
 from enum import Enum
+from typing import Iterable, Iterator
 
-cmd_options = {
-    "-f": "--freq",
-    "-u": "--unique",
-    "-l": "--lengths"
-}
+cmd_options = {"-f": "--freq", "-u": "--unique", "-l": "--lengths"}
 
 
 class Options(Enum):
@@ -98,14 +94,16 @@ def read_file(path: str) -> Iterator[str]:
 
 
 # TODO: Count words
-def count_words(ws: Iterable[str], *filters, case_sensitive=False, **kwargs) -> dict[str, int]:
+def count_words(
+    ws: Iterable[str], *filters, case_sensitive=False, **kwargs
+) -> dict[str, int]:
     """
     `ws` - Any iterable of words
     `*filters` - Are callables that filters for specific words
     `case_sensitive` - Toggles normalization
     `**kwargs` - May include `min_length`, `max_items`
 
-        returns a dictionary containing filtered words and their corresponding 
+        returns a dictionary containing filtered words and their corresponding
         count
     """
     options = kwargs.copy()
