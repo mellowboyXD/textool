@@ -17,21 +17,6 @@ short_options = list(cmd_options.keys())
 long_options = list(cmd_options.values())
 
 
-class Logger:
-    def __init__(self):
-        pass
-
-    def Error(self, *message):
-        print(f"[LOG ERROR]:")
-        for msg in message:
-            print(f"\t: {msg}")
-
-    def Log(self, *message):
-        print(f"[LOG]:")
-        for msg in message:
-            print(f"\t: {msg}")
-
-
 class UsageError(Exception):
     def __init__(self, message):
         super().__init__(message)
@@ -83,17 +68,13 @@ def read_file(path: str) -> Iterator[str]:
                 _ = line.encode("utf-8")
                 yield line
     except FileNotFoundError:
-        print(f"ERROR: File '{path}' not found.")
-        raise IOError
+        raise IOError(f"File '{path}' not found")
     except IsADirectoryError:
-        print(f"ERROR: '{path}' is a directory.")
-        raise IOError
+        raise IOError(f"'{path}' is a directory.")
     except UnicodeDecodeError:
-        print(f"ERROR: Could not decode '{path}'.")
-        raise IOError
+        raise IOError(f"Could not decode '{path}'.")
 
 
-# TODO: Count words
 def count_words(
     ws: Iterable[str], *filters, case_sensitive=False, **kwargs
 ) -> dict[str, int]:
@@ -153,11 +134,9 @@ def count_words(
 
 def main(*args) -> None:
     argc = len(args)
-    try:
-        if argc < 1:
-            raise UsageError("Not enough arguments")
-    except UsageError as err:
-        err.error_and_exit()
+
+    if argc < 1:
+        raise UsageError("Not enough arguments")
 
     # Handle args
     opts = set()
@@ -174,26 +153,21 @@ def main(*args) -> None:
             error_invalid_flag = True
 
     # User types a command that is not valid
-    try:
-        if error_invalid_flag:
-            raise UsageError("Invalid command.")
-    except UsageError as err:
-        err.error_and_exit()
+    if error_invalid_flag:
+        raise UsageError("Invalid command.")
 
     # User does not provide file name
-    try:
-        if not fileName:
-            raise UsageError("File input not provided")
-    except UsageError as err:
-        err.error_and_exit()
+    if not fileName:
+        raise UsageError("File input not provided")
 
-    try:
-        for line in read_file(fileName):
-            stream = WordStream(line)
-            # TODO: Implement Counting Here
-    except IOError:
-        exit()
+    for line in read_file(fileName):
+        stream = WordStream(line)
+        count = count_words(stream)
+        print(count)
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:])
+    try:
+        main(*sys.argv[1:])
+    except Exception as err:
+        print("ERROR:", err)
